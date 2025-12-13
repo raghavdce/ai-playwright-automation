@@ -1,0 +1,17 @@
+name: Jira → AI Playwright Automation
+
+on:
+  repository_dispatch:
+    types: [jira_event]
+
+jobs:
+  jira-ai-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Print Jira payload
+        run: |
+          echo "Jira Issue Key: ${{ github.event.client_payload.issueKey }}"
