@@ -14,67 +14,43 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      # -------------------------------
-      # Checkout
-      # -------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -------------------------------
-      # Node setup
-      # -------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
 
-      # -------------------------------
-      # Install deps
-      # -------------------------------
       - name: Install dependencies
         run: npm ci
 
-      # -------------------------------
-      # Install browsers
-      # -------------------------------
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # -------------------------------
-      # Run Playwright tests
-      # -------------------------------
       - name: Run Playwright tests
         run: npx playwright test
-        continue-on-error: true
 
-      # -------------------------------
-      # Send result to n8n (SAFE)
-      # -------------------------------
+      # ✅ SAFE n8n notification step
       - name: Send Playwright result to n8n
         if: always()
         env:
-          N8N_WEBHOOK_URL: ${{ secrets.N8N_PLAYWRIGHT_WEBHOOK }}
+          N8N_PLAYWRIGHT_WEBHOOK: ${{ secrets.N8N_PLAYWRIGHT_WEBHOOK }}
         run: |
-          if [ -z "$N8N_WEBHOOK_URL" ]; then
+          if [ -z "$N8N_PLAYWRIGHT_WEBHOOK" ]; then
             echo "N8N webhook not configured. Skipping."
             exit 0
           fi
 
-          if [ ! -f playwright-results.json ]; then
-            echo "Playwright JSON report not found. Sending fallback payload."
-            curl -X POST "$N8N_WEBHOOK_URL" \
-              -H "Content-Type: application/json" \
-              -d "{\"status\":\"completed\",\"runId\":\"${GITHUB_RUN_ID}\",\"note\":\"No playwright-results.json\"}"
+          if [ ! -f playwright-report.json ]; then
+            echo "playwright-report.json not found. Skipping."
             exit 0
           fi
 
-          curl -X POST "$N8N_WEBHOOK_URL" \
+          curl -X POST "$N8N_PLAYWRIGHT_WEBHOOK" \
             -H "Content-Type: application/json" \
-            --data-binary @playwright-results.json
+            --data-binary @playwright-report.json
 
-      # -------------------------------
-      # Upload Playwright HTML report
-      # -------------------------------
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
@@ -83,9 +59,7 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-  # =====================================================
-  # SECURITY SCAN
-  # =====================================================
+
   security-scan:
     name: OWASP ZAP Security Scan
     runs-on: ubuntu-latest
