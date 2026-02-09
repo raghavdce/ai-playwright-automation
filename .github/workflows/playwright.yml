@@ -31,7 +31,7 @@ jobs:
       - name: Run Playwright tests
         run: npx playwright test
 
-      # ✅ SAFE n8n notification step
+      # ✅ Send Playwright JSON result to n8n
       - name: Send Playwright result to n8n
         if: always()
         env:
@@ -68,9 +68,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🔒 PERMANENT ZAP FIX (NO BLANK REPORTS)
-      - name: Run OWASP ZAP Baseline Scan (Classic Stable Mode)
-        uses: zaproxy/action-baseline@v0.10.0
+      # 🔒 FINAL FIX — CLASSIC ZAP ENGINE (NO AUTOMATION FRAMEWORK)
+      - name: Run OWASP ZAP Scan (Stable Mode)
+        uses: zaproxy/action-full-scan@v0.10.0
         with:
           target: https://www.saucedemo.com
           cmd_options: >
