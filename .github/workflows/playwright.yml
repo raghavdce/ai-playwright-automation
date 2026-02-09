@@ -31,6 +31,14 @@ jobs:
       - name: Run Playwright tests
         run: npx playwright test
 
+      # 🔽 NEW STEP (THIS IS WHAT YOU ADD)
+      - name: Send Playwright result to n8n
+        if: always()
+        run: |
+          curl -X POST ${{ secrets.N8N_PLAYWRIGHT_WEBHOOK }} \
+          -H "Content-Type: application/json" \
+          --data-binary @playwright-report.json
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
@@ -43,7 +51,7 @@ jobs:
   security-scan:
     name: OWASP ZAP Security Scan
     runs-on: ubuntu-latest
-    needs: test   # runs AFTER Playwright tests
+    needs: test
 
     steps:
       - name: Checkout repository
@@ -53,7 +61,7 @@ jobs:
         uses: zaproxy/action-baseline@v0.10.0
         with:
           target: https://www.saucedemo.com
-          fail_on_alert: false   # ✅ DO NOT fail pipeline on warnings
+          fail_on_alert: false
 
       - name: Upload ZAP Security Report
         if: always()
