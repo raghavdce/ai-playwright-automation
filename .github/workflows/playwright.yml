@@ -1,4 +1,4 @@
-name: Playwright + Security Tests
+name: Playwright + Performance + Security Tests
 
 on:
   push:
@@ -31,7 +31,6 @@ jobs:
       - name: Run Playwright tests
         run: npx playwright test
 
-      # ✅ Send Playwright JSON result to n8n
       - name: Send Playwright result to n8n
         if: always()
         env:
@@ -59,8 +58,8 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-  security-scan:
-    name: OWASP ZAP Security Scan
+  performance:
+    name: k6 Performance Tests
     runs-on: ubuntu-latest
     needs: test
 
@@ -68,16 +67,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🔒 FINAL FIX — CLASSIC ZAP ENGINE (NO AUTOMATION FRAMEWORK)
-      - name: Run OWASP ZAP Scan (Stable Mode)
-        uses: zaproxy/action-full-scan@v0.10.0
+      - name: Install k6
+        run: |
+          sudo apt update
+          sudo apt install -y gnupg ca-certificates
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt update
+          sudo apt install -y k6
+
+      - name: Run k6 performance test
+        run: k6 run performance/login.perf.js
+
+  security:
+    name: OWASP ZAP Security Scan
+    runs-on: ubuntu-latest
+    needs: performance
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.10.0
         with:
           target: https://www.saucedemo.com
-          cmd_options: >
-            -J report_json.json
-            -w report_md.md
-            -r report_html.html
-            -d
+          cmd_options: "-J report_json.json -w report_md.md -r report_html.html"
 
       - name: Upload ZAP Security Report
         if: always()
