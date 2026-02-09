@@ -31,6 +31,26 @@ jobs:
       - name: Run Playwright tests
         run: npx playwright test
 
+      # ✅ SAFE n8n notification step
+      - name: Send Playwright result to n8n
+        if: always()
+        env:
+          N8N_PLAYWRIGHT_WEBHOOK: ${{ secrets.N8N_PLAYWRIGHT_WEBHOOK }}
+        run: |
+          if [ -z "$N8N_PLAYWRIGHT_WEBHOOK" ]; then
+            echo "N8N webhook not configured. Skipping."
+            exit 0
+          fi
+
+          if [ ! -f playwright-report.json ]; then
+            echo "playwright-report.json not found. Skipping."
+            exit 0
+          fi
+
+          curl -X POST "$N8N_PLAYWRIGHT_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            --data-binary @playwright-report.json
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
@@ -39,21 +59,25 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-
   security-scan:
     name: OWASP ZAP Security Scan
     runs-on: ubuntu-latest
-    needs: test   # runs AFTER Playwright tests
+    needs: test
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run OWASP ZAP Baseline Scan
+      # 🔒 PERMANENT ZAP FIX (NO BLANK REPORTS)
+      - name: Run OWASP ZAP Baseline Scan (Classic Stable Mode)
         uses: zaproxy/action-baseline@v0.10.0
         with:
           target: https://www.saucedemo.com
-          fail_on_alert: false   # ✅ DO NOT fail pipeline on warnings
+          cmd_options: >
+            -J report_json.json
+            -w report_md.md
+            -r report_html.html
+            -d
 
       - name: Upload ZAP Security Report
         if: always()
