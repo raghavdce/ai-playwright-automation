@@ -31,6 +31,7 @@ jobs:
       - name: Run Playwright tests
         run: npx playwright test
 
+      # ✅ SAFE n8n notification
       - name: Send Playwright result to n8n
         if: always()
         env:
@@ -50,7 +51,7 @@ jobs:
             -H "Content-Type: application/json" \
             --data-binary @playwright-report.json
 
-      - name: Upload Playwright report
+      - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -67,11 +68,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 🔒 HARD-LOCKED BASELINE MODE (NO zap.yaml)
       - name: Run OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.10.0
         with:
           target: https://www.saucedemo.com
-          cmd_options: "-J report_json.json -w report_md.md -r report_html.html"
+          cmd_options: >
+            -a
+            -J report_json.json
+            -w report_md.md
+            -r report_html.html
 
       - name: Upload ZAP Security Report
         if: always()
