@@ -55,9 +55,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ github.run_number }}
           path: playwright-report/
-          retention-days: 30
+          retention-days: 3
 
   security-scan:
     name: OWASP ZAP Security Scan
@@ -88,4 +88,4 @@ jobs:
             report_html.html
             report_md.md
             report_json.json
-          retention-days: 30
+          retention-days: 3
