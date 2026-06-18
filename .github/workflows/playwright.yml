@@ -1,10 +1,10 @@
-name: AI Playwright + Security Pipeline
+name: Playwright + Security Tests
 
 on:
   push:
-    paths:
-      - 'tests/**'
-
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -13,28 +13,50 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
-    outputs:
-      test_status: ${{ steps.test_execution.outcome }}
-
     steps:
+      # Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Setup Node
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 22
+          cache: 'npm'
 
+      # Install packages
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
+      # Cache Playwright browsers
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Install only Chromium
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install chromium --with-deps
 
+      # Run Playwright tests
       - name: Run Playwright tests
-        id: test_execution
-        run: npx playwright test
+        run: |
+          npx playwright test --reporter=json > playwright-report.json || true
 
+      # Upload Playwright HTML report
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: |
+            playwright-report/
+            playwright-report.json
+          retention-days: 3
+
+      # Send result to n8n webhook
       - name: Send Playwright result to n8n
         if: always()
         env:
@@ -54,44 +76,36 @@ jobs:
             -H "Content-Type: application/json" \
             --data-binary @playwright-report.json
 
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-${{ github.run_number }}
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 5
-
   security-scan:
     name: OWASP ZAP Security Scan
     runs-on: ubuntu-latest
     needs: test
-    if: always()
+    continue-on-error: true
 
     steps:
+      # Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Run ZAP scan
       - name: Run OWASP ZAP Scan
-        continue-on-error: true
-        uses: zaproxy/action-full-scan@v0.10.0
+        uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: https://www.saucedemo.com
           cmd_options: >
-            -J zap-report.json
-            -w zap-report.md
-            -r zap-report.html
+            -J report_json.json
+            -w report_md.md
+            -r report_html.html
             -d
 
+      # Upload ZAP reports
       - name: Upload ZAP Security Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: zap-security-report-${{ github.run_number }}
           path: |
-            zap-report.html
-            zap-report.md
-            zap-report.json
-          retention-days: 5
+            report_html.html
+            report_md.md
+            report_json.json
+          retention-days: 3
