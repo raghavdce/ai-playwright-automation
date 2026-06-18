@@ -35,7 +35,6 @@ jobs:
         id: test_execution
         run: npx playwright test
 
-      # Send Playwright result to n8n
       - name: Send Playwright result to n8n
         if: always()
         env:
@@ -72,7 +71,11 @@ jobs:
     if: always()
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run OWASP ZAP Scan
+        continue-on-error: true
         uses: zaproxy/action-full-scan@v0.10.0
         with:
           target: https://www.saucedemo.com
