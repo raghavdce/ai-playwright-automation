@@ -1,10 +1,10 @@
-name: Playwright + Security Tests
+name: AI Playwright + Security Pipeline
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    paths:
+      - 'tests/**'
+
   workflow_dispatch:
 
 jobs:
@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
+    outputs:
+      test_status: ${{ steps.test_execution.outcome }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,18 +23,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 20
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests
-        run: npx playwright test || true
+        id: test_execution
+        run: npx playwright test
 
-      # ✅ Send Playwright JSON result to n8n
+      # Send Playwright result to n8n
       - name: Send Playwright result to n8n
         if: always()
         env:
@@ -56,36 +60,35 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ github.run_number }}
-          path: playwright-report/
-          retention-days: 3
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 5
 
   security-scan:
     name: OWASP ZAP Security Scan
     runs-on: ubuntu-latest
     needs: test
+    if: always()
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # 🔒 FINAL FIX — CLASSIC ZAP ENGINE (NO AUTOMATION FRAMEWORK)
-      - name: Run OWASP ZAP Scan (Stable Mode)
+      - name: Run OWASP ZAP Scan
         uses: zaproxy/action-full-scan@v0.10.0
         with:
           target: https://www.saucedemo.com
           cmd_options: >
-            -J report_json.json
-            -w report_md.md
-            -r report_html.html
+            -J zap-report.json
+            -w zap-report.md
+            -r zap-report.html
             -d
 
       - name: Upload ZAP Security Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zap-security-report
+          name: zap-security-report-${{ github.run_number }}
           path: |
-            report_html.html
-            report_md.md
-            report_json.json
-          retention-days: 3
+            zap-report.html
+            zap-report.md
+            zap-report.json
+          retention-days: 5
